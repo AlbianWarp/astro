@@ -9,8 +9,9 @@ from collections import namedtuple
 
 
 PackageHeader = namedtuple('PackageHeader', "type echo sender_id unknown pkg_count")
-LoginPackage = namedtuple('LoginPackage',"unk1 unk2 unk3 nlen plen name password")
 package_header_fmt="4s8sI4sI8x"
+LoginPackage = namedtuple('LoginPackage',"unk1 unk2 unk3 nlen plen name password")
+login_package_fmt = "4s4s4sII%dsx%dsx" # (name_lenght , password_length )
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     """
@@ -36,7 +37,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         print(ph)
         nlen, plen=unpack("II",data[44:52])
         data += self.request.recv(nlen+plen)
-        lp = LoginPackage._make(unpack(f"4s4s4sII{nlen-1}sx{plen-1}sx",data[32:52+nlen+plen]))
+        lp = LoginPackage._make(unpack(login_package_fmt % (nlen-1,plen-1),data[32:52+nlen+plen]))
         print(lp)
 
 
