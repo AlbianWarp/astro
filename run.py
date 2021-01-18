@@ -8,10 +8,12 @@ from struct import unpack
 from collections import namedtuple
 
 
-PackageHeader = namedtuple('PackageHeader', "type echo sender_id unknown pkg_count")
-package_header_fmt="4s8sI4sI8x"
-LoginPackage = namedtuple('LoginPackage',"unk1 unk2 unk3 nlen plen name password")
-login_package_fmt = "4s4s4sII%dsx%dsx" # (name_lenght , password_length )
+PackageHeader = namedtuple("PackageHeader", "type echo sender_id unknown pkg_count")
+package_header_fmt = "4s8sI4sI8x"
+
+LoginPackage = namedtuple("LoginPackage", "unk1 unk2 unk3 nlen plen name password")
+login_package_fmt = "4s4s4sII%dsx%dsx"  # (name_lenght , password_length )
+
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     """
@@ -30,23 +32,32 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
         Handle the Client Socket!
         """
-        data = self.request.recv(52)
-        if  data[0:4] != bytes.fromhex("25000000"):
+        self.data = self.request.recv(52)
+        if self.data[0:4] != bytes.fromhex("25000000"):
             return
-        ph = PackageHeader._make(unpack(package_header_fmt,data[0:32]))
-        print(ph)
-        nlen, plen=unpack("II",data[44:52])
-        data += self.request.recv(nlen+plen)
-        lp = LoginPackage._make(unpack(login_package_fmt % (nlen-1,plen-1),data[32:52+nlen+plen]))
-        print(lp)
-
-
+        self._handle_login_package()
 
     def finish(self):
         """
         called after the handle method, use this to clean up afterwards!
         """
         pass
+
+    def _handle_login_package(self):
+        ph = PackageHeader._make(unpack(package_header_fmt, self.data[0:32]))
+        nlen, plen = unpack("II", self.data[44:52])
+        self.data += self.request.recv(nlen + plen)
+        lp = LoginPackage._make(
+            unpack(
+                login_package_fmt % (nlen - 1, plen - 1),
+                self.data[32 : 52 + nlen + plen],
+            )
+        )
+        # Cut of Header + Package Data from self.data
+        self.data = self.data[52 + nlen + plen :]
+        print(ph)
+        print(lp)
+        print(self.data)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
