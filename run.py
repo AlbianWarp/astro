@@ -4,15 +4,24 @@ from socket import SHUT_RDWR
 import cmd
 import threading
 from threading import Thread
-from struct import unpack
+from struct import unpack, pack
 from collections import namedtuple
+from time import sleep
 
+
+
+player_database = {
+    "alice": {"id": 123, "password": "alice"},
+    "bob": {"id": 234, "password": "bob"},
+    "ham5ter": {"id": 1337, "password": "notsecure"},
+}
+
+sessions = []
+
+online_player = {}
 
 PackageHeader = namedtuple("PackageHeader", "type echo sender_id unknown pkg_count")
-package_header_fmt = "4s8sI4sI8x"
-
-LoginPackage = namedtuple("LoginPackage", "unk1 unk2 unk3 nlen plen name password")
-login_package_fmt = "4s4s4sII%dsx%dsx"  # (name_lenght , password_length )
+package_header_fmt = "I8sI4sI8x"
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -21,6 +30,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     It is instantiated once per connection, and overrides the
     handle() method to implement communication to the client.
     """
+
+    def dbg(self, message: str,color="\033[00m"):
+        print(f"{self.client_address} - {color}{message}\033[00m")
 
     def setup(self):
         """
@@ -32,10 +44,53 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
         Handle the Client Socket!
         """
-        self.data = self.request.recv(52)
-        if self.data[0:4] != bytes.fromhex("25000000"):
-            return
-        self._handle_login_package()
+        sessions.append(self)
+        try:
+            self.dbg(f"New session")
+            self.session_run = False
+            self.data = self.request.recv(52)
+            ph = PackageHeader._make(unpack(package_header_fmt, self.data[0:32]))
+            if ph.type != 37:
+                self.dbg(
+                    f"Something diffrent than a login was sent! Bye bye!"
+                )
+                return
+            if self._handle_login(): # NET: LINE
+                self.dbg(
+                    f"{(self.username,self.user_id)} successfully logged in! "
+                )
+                self.session_run = True
+            while self.session_run:
+                try:
+                    self.data = self.request.recv(32)
+                    if self.data == b'':
+                        self.dbg(f"data is empty! Farewell!")
+                        break
+                    ph = PackageHeader._make(
+                        unpack(package_header_fmt, self.data[0:32])
+                    )
+                    if ph.type == 19:  # NET: ULIN
+                        self._handle_ulin()
+                    else:
+                        self.dbg("Uh Oh! Unknown Package Type! Cant Handle this :( Stuff might BREAK!", color="\033[93m")
+                        self.dbg(f"data: {self.data.hex()}", color="\033[93m")
+                        self.dbg(f"{ph}", color="\033[93m")
+                except ConnectionResetError:
+                    self.dbg(
+                        f"Connection Reset by Peer! Farewell!"
+                    )
+                    self.session_run = False
+                    break
+        finally:
+            try:
+                sessions.remove(self)
+                if self.user_id:
+                    del online_player[self.user_id]
+                    self.dbg(f"removed {self.user_id} from online_players!")
+            except Exception as e:
+                self.dbg(
+                    f"Something went wrong while removing the Session or player from the online_player database: {e}"
+                )
 
     def finish(self):
         """
@@ -43,25 +98,124 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
         pass
 
-    def _handle_login_package(self):
-        ph = PackageHeader._make(unpack(package_header_fmt, self.data[0:32]))
-        nlen, plen = unpack("II", self.data[44:52])
-        self.data += self.request.recv(nlen + plen)
-        lp = LoginPackage._make(
+
+    def _handle_user_status(self):
+        # user_id = int.from_bytes(data[12:16], byteorder="little")
+        # user_hid = int.from_bytes(data[16:18], byteorder="little")
+        # reply = user_status_package(user_id=user_id, user_hid=user_hid)
+        UserStatusReply = namedtuple("UserStatusReply", "type_I user_id1_I user_hid1_H unk1_H payload_len1_I payload_len2_I user_id2_I user_hid2_H unk2_s name_len_I surename_len_I username_len_I name_s surename_s username_s")
+        user_status_reply_fmt = "I8xIHH4xI4xII4sIIH2sI%ds%ds%ds" % name_len_I surename_len_I username_len_I
+
+        username = None
+        for name, user in player_database.items():
+            if user["id"] == user_id:
+                username = name
+                break
+        if not username:
+            username = "ERROR"
+
+
+    def _handle_ulin(self):
+        """
+        ULIN Requests do only consist of 32 Byte.
+        """
+        # Request:
+        UlinRequest = namedtuple("UlinRequest", "echo_load user_id pkg_count")
+        ulin_request_fmt = "4x8sI4xI8x"
+        ulin_request = UlinRequest._make(unpack(ulin_request_fmt, self.data[0:32]))
+        if ulin_request.user_id in online_player:
+            self.request.sendall(
+                pack(
+                    "I8s8xI4xI", 19, ulin_request.echo_load, ulin_request.pkg_count, 10
+                )
+            )
+            self.dbg(f"{self.user_id} requested online Status of {ulin_request.user_id}: Status: online")
+        else:
+            self.request.sendall(
+                pack(
+                    "I16xI8x",
+                    19,
+                    ulin_request.pkg_count,
+                )
+            )
+            self.dbg(f"{self.user_id} requested online Status of {ulin_request.user_id}: Status: offline")
+
+    def _handle_login(self):  # sourcery skip: move-assign
+        # Request:
+        LoginRequest = namedtuple(
+            "LoginRequest",
+            "unk1 unk2 unk3 username_length password_length name password",
+        )
+        login_request_fmt = "4s4s4sII%dsx%dsx"  # (name_lenght , password_length )
+        # Responses:
+        SuccessfullLoginReply = namedtuple(
+            "SuccessfullLoginReply",
+            "unk1 unk2 unk3 payload_length unk4 unk5 unk6 port server_id , server_name, server_friendly_name",
+        )
+        successfull_login_reply_fmt = (
+            "IIIIIIIII%dsx%dsx"  # (len(server_host),len(server_friendly_name)
+        )
+        # FailesLoginReply = namedtuple("FailesLoginReply", "unk1")
+        failed_login_reply_fmt = "28x"
+
+        incomming_package_header = PackageHeader._make(
+            unpack(package_header_fmt, self.data[0:32])
+        )
+        username_length, password_length = unpack("II", self.data[44:52])
+        self.data += self.request.recv(username_length + password_length)
+        ilp = LoginRequest._make(
             unpack(
-                login_package_fmt % (nlen - 1, plen - 1),
-                self.data[32 : 52 + nlen + plen],
+                login_request_fmt % (username_length - 1, password_length - 1),
+                self.data[32 : 52 + username_length + password_length],
             )
         )
-        # Cut of Header + Package Data from self.data
-        self.data = self.data[52 + nlen + plen :]
-        print(ph)
-        print(lp)
-        print(self.data)
+        self.username = ilp.name.decode("latin-1")
+        # TODO: Actual authentication lol!
+        if self.username not in player_database:
+            self.dbg("Well I dont know you! so you get the GO AWAY Message!")
+            rhp = pack(
+                package_header_fmt,
+                10,
+                b"happymoo",
+                0,
+                incomming_package_header.unknown,
+                incomming_package_header.pkg_count,
+            )
+            sleep(5)  # slow down failed logins!
+            self.request.sendall(rhp + pack(failed_login_reply_fmt))
+            return False
+        self.user_id = player_database[self.username]["id"]
+        online_player[self.user_id] = self
+        rhp = pack(
+            package_header_fmt,
+            10,
+            b"happymoo",
+            self.user_id,
+            incomming_package_header.unknown,
+            incomming_package_header.pkg_count,
+        )
+        server_host = b"192.168.0.185"
+        server_friendly_name = b"Heart"
+        rlp = pack(
+            "IIIIIIIII%dsx%dsx" % (len(server_host), len(server_friendly_name)),
+            0,
+            1,
+            0,
+            40,
+            1,
+            1,
+            1,
+            1337,
+            1,
+            server_host,
+            server_friendly_name,
+        )
+        self.request.sendall(rhp + rlp)
+        return True
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
+    daemon_threads = True
 
 
 def main():
@@ -101,6 +255,13 @@ def main():
             print(f"Server loop running in thread: {server_thread.name}")
             print(f"IP: {ip} Port: {port}")
             print(f"{server}")
+
+        def do_ls(self, arg):
+            """
+            Print Server Information! : INFO
+            """
+            for session in sessions:
+                print(session.client_address)
 
         def do_bye(self, arg):
             """
