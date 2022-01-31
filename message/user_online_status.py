@@ -1,5 +1,7 @@
 from . import Package
 
+# TODO: This needs the struct treatment as well :D
+
 class UserOnlineStatus(Package):
     def __init__(self, username, user_id, user_hid, online=False):
         payld_len = 34 + len(username)

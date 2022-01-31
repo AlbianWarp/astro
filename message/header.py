@@ -2,14 +2,20 @@ from struct import unpack, pack
 from collections import namedtuple
 from . import Package
 
-def pack_header(request_type, echo, sender_id, sender_hid, unknown01, pkg_count):
-    return Header(pack(Header.fmt,request_type, echo, sender_id, sender_hid, unknown01, pkg_count))
+
+def pack_header(type, echo, user_id, user_hid, unknown01, pkg_count,unknown02=8*b"\x00"):
+    return Header(
+        pack(
+            Header.fmt, type, echo, user_id, user_hid, unknown01, pkg_count, unknown02
+        )
+    )
+
 
 class Header(Package):
     field_names = namedtuple(
-        "Header", "request_type echo sender_id sender_hid unknown01 pkg_count"
+        "Header", "type echo user_id user_hid unknown01 pkg_count unknown02"
     )
-    fmt = "<I8sI2s2sI8x"
+    fmt = "<I8sI2s2sI8s"
     data = None
     unpacked_data = None
 
@@ -17,13 +23,12 @@ class Header(Package):
         if len(args) == 1 and type(args[0]) == bytes:
             self.data = args[0]
         else:
-            self.data = pack(self.fmt,*args)
+            self.data = pack(self.fmt, *args)
         self.unpacked_data = self.field_names._make(unpack(self.fmt, self.data))
 
-
     @property
-    def request_type(self):
-        return self.unpacked_data.request_type
+    def type(self):
+        return self.unpacked_data.type
 
     @property
     def pkg_count(self):
@@ -34,10 +39,9 @@ class Header(Package):
         return self.unpacked_data.echo
 
     @property
-    def sender_id(self):
-        return self.unpacked_data.sender_id
+    def user_id(self):
+        return self.unpacked_data.user_id
 
     @property
     def unknown01(self):
         return self.unpacked_data.unknown01
-

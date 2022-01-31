@@ -52,12 +52,21 @@ class FailedLoginReply(Package):
     data = None
     unpacked_data = None
     fmt = "<I16xI36x"
-    def __init__(self,header):
+
+    def __init__(self, header):
         self.data = pack(self.fmt, 10, header.pkg_count)
         self.unpacked_data = self.field_names._make(unpack(self.fmt, self.data))
 
+
 class SuccessfullLoginReply(Package):
-    field_names = namedtuple("SuccessfullLoginReply", Header.field_names._fields + namedtuple( "A", "unk01 payload_len unk02 unk03 unk04 server_cfg_port unk05 server_cfg_host server_cfg_name")._fields)
+    field_names = namedtuple(
+        "SuccessfullLoginReply",
+        Header.field_names._fields
+        + namedtuple(
+            "A",
+            "unk01 payload_len unk02 unk03 unk04 server_cfg_port unk05 server_cfg_host server_cfg_name",
+        )._fields,
+    )
     """
     unk01, unk02, unk03, unk04 could be the number of servers provided.
     unk05 is probably the Server Number for the given server.
@@ -66,8 +75,30 @@ class SuccessfullLoginReply(Package):
     data = None
     unpacked_data = None
     fmt = "4xI4xIIIIII%dsx%dsx"
-    def __init__(self,header, echo,user_id,user_hid,server_cfg):
+
+    def __init__(self, header, echo, user_id, user_hid, server_cfg):
         payload_length = len(server_cfg["host"]) + len(server_cfg["name"]) + 22
-        self.fmt = Header.fmt + self.fmt % (len(server_cfg["host"]), len(server_cfg["name"]))
-        self.data = pack(self.fmt, 10,echo,user_id,b"\x01\x00",b"\x0a\x00",header.pkg_count,1,payload_length,1,1,1,server_cfg["port"],1,bytes(server_cfg["host"],"latin-1"),bytes(server_cfg["name"],"latin-1"))
+        self.fmt = Header.fmt + self.fmt % (
+            len(server_cfg["host"]),
+            len(server_cfg["name"]),
+        )
+        self.data = pack(
+            self.fmt,
+            10,
+            echo,
+            user_id,
+            b"\x01\x00",
+            b"\x0a\x00",
+            header.pkg_count,
+            8*b"\x00",
+            1,
+            payload_length,
+            1,
+            1,
+            1,
+            server_cfg["port"],
+            1,
+            bytes(server_cfg["host"], "latin-1"),
+            bytes(server_cfg["name"], "latin-1"),
+        )
         self.unpacked_data = self.field_names._make(unpack(self.fmt, self.data))
