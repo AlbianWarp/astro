@@ -1,6 +1,6 @@
 from struct import unpack, pack
 from collections import namedtuple
-from . import Package
+from rebabel_server.message import Package
 
 
 def pack_header(type, echo, user_id, user_hid, unknown01, pkg_count,unknown02=8*b"\x00"):

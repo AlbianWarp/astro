@@ -1,5 +1,5 @@
 from collections import namedtuple
-from .header import Header
+from rebabel_server.message.header import Header
 
 class WhonRequest(Header):
     field_names = namedtuple(

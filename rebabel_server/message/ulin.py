@@ -1,7 +1,7 @@
 from struct import unpack, pack
 from collections import namedtuple
-from . import Package
-from .header import Header
+from rebabel_server.message.header import Header
+from rebabel_server.message import Package
 
 class UlinRequest(Header):
     field_names = namedtuple(

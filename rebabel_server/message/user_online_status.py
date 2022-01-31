@@ -1,4 +1,4 @@
-from . import Package
+from rebabel_server.message import Package
 
 # TODO: This needs the struct treatment as well :D
 

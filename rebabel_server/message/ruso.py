@@ -1,7 +1,7 @@
 from struct import unpack, pack
 from collections import namedtuple
-from .header import Header
-from . import Package
+from rebabel_server.message.header import Header
+from rebabel_server.message import Package
 
 
 class RusoReply(Package):
