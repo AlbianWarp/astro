@@ -22,20 +22,21 @@ class RebabelShell(cmd.Cmd):
         """
         Print Server Information! : INFO
         """
-        print(f"{self.rebabel_server.__dict__}")
+        print(self.rebabel_server.RequestHandlerClass.requests)
+        print(self.rebabel_server.RequestHandlerClass.threads)
 
     def do_bye(self, arg):
         """
         Stop ReBabel Shell, and exit! : BYE
         """
         print("Thank you for flying with ReBabel!")
-        for thread in self.rebabel_server.threads:
+        for thread in self.rebabel_server.RequestHandlerClass.threads:
             thread.request.shutdown(SHUT_RDWR)
         self.close()
         return True
 
-        def close(self):
-            self.loop = False
-            if self.file:
-                self.file.close()
-                self.file = None
+    def close(self):
+        self.loop = False
+        if self.file:
+            self.file.close()
+            self.file = None

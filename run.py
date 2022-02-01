@@ -1,5 +1,4 @@
 from threading import Thread
-from rich import print
 from rebabel_server import ThreadedTCPServer,ThreadedTCPRequestHandler
 from rebabel_shell import RebabelShell
 def main():
@@ -9,8 +8,6 @@ def main():
     HOST, PORT = "0.0.0.0", 1337
     ThreadedTCPServer.allow_reuse_address = True
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
-    ip, port = server.server_address
-
     # Start a thread with the server -- that thread will then start one
     # more thread for each request.
     server_thread = Thread(target=server.serve_forever)

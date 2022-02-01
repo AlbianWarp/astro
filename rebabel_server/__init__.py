@@ -10,20 +10,11 @@ import random
 from hexdump import hexdump
 
 
-echo_load = b"Call2Ark"
 users = {
     "adam": 1,
     "eve": 2,
     "moep": 3,
 }
-server_cfg = {
-    "host": "192.168.178.50",
-    "port": 1337,
-    "name": "Astro",
-}
-
-requests = {}
-threads = []
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -32,13 +23,22 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     It is instantiated once per connection, and overrides the
     handle() method to implement communication to the client.
     """
+    echo_load = b"Call2Ark"
+    threads = []
+    requests = {}
+    server_cfg = {
+        "host": "192.168.178.50",
+        "port": 1337,
+        "name": "Astro",
+    }
+
 
     def setup(self):
         """
         called before the handle method, set the Stage!
         """
         print(f"{self.request.getpeername()} connected")
-        threads.append(self)
+        self.threads.append(self)
 
 
     def _handle(self):
@@ -81,9 +81,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         called after the handle method, use this to clean up afterwards!
         """
         print(f"{self.client_address} disconnected")
-        threads.remove(self)
+        self.threads.remove(self)
         if 'user_id' in self.__dict__:
-            requests.pop(self.user_id)
+            self.requests.pop(self.user_id)
 
     def _handle_login_package(self, header):
         login_request = LoginRequest(header=header, request=self.request)
@@ -95,22 +95,22 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             self.request.sendall(
                 SuccessfullLoginReply(
                     header=header,
-                    echo=echo_load,
+                    echo=self.echo_load,
                     user_id=self.user_id,
                     user_hid=1,
-                    server_cfg=server_cfg,
+                    server_cfg=self.server_cfg,
                 ).data
             )
-            requests[self.user_id] = self
+            self.requests[self.user_id] = self
             self.session_run = True
 
     def _handle_ulin_package(self, header):
         ulin_request = UlinRequest(header.data)
-        ulin_reply = UlinReply(header, online=ulin_request.user_id in requests)
+        ulin_reply = UlinReply(header, online=ulin_request.user_id in self.requests)
         self.request.sendall(ulin_reply.data)
 
     def _handle_ruso_package(self, header):
-        user_id = random.choice(list(requests.keys()))
+        user_id = random.choice(list(self.requests.keys()))
         ruso_reply = RusoReply(header=header,user_id=user_id,user_hid=1)
         self.request.sendall(ruso_reply.data)
 
@@ -124,7 +124,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             username=username,
             user_id=whon_request.user_id,
             user_hid=1,
-            online=whon_request.user_id in requests,
+            online=whon_request.user_id in self.requests,
         )
         self.request.sendall(user_online_status_reply.data)
 
