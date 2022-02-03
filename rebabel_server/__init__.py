@@ -1,5 +1,6 @@
-from time import sleep
+from threading import Thread
 import socketserver
+from time import sleep
 from rebabel_server.message.header import Header
 from rebabel_server.message.login import LoginRequest, SuccessfullLoginReply, FailedLoginReply
 from rebabel_server.message.ulin import UlinReply, UlinRequest
@@ -10,11 +11,25 @@ import random
 from hexdump import hexdump
 
 
-users = {
-    "adam": 1,
-    "eve": 2,
-    "moep": 3,
-}
+
+class ReBabelServer():
+
+    def __init__(self,host,port):
+        self.host = host
+        self.port = port
+        ThreadedTCPServer.allow_reuse_address = True
+        self.threaded_tcp_server = ThreadedTCPServer((host, port), ThreadedTCPRequestHandler)
+        # Start a thread with the server -- that thread will then start one
+        # more thread for each request.
+        self.server_thread = Thread(target=self.threaded_tcp_server.serve_forever)
+        self.server_thread.name = "ServerThread"
+        self.server_thread.daemon = True # Exit the server thread when the main thread terminates
+        self.threaded_tcp_server
+        self.server_thread.start()
+
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -23,6 +38,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     It is instantiated once per connection, and overrides the
     handle() method to implement communication to the client.
     """
+
     echo_load = b"Call2Ark"
     threads = []
     requests = {}
@@ -31,7 +47,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         "port": 1337,
         "name": "Astro",
     }
-
+    users = {
+        "bob": 1,
+        "alice": 2,
+        "moep": 3
+    }
 
     def setup(self):
         """
@@ -87,9 +107,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def _handle_login_package(self, header):
         login_request = LoginRequest(header=header, request=self.request)
-        self.username = str(login_request.name)
-        self.user_id = users[self.username]
-        if not self.username in users:
+        self.username = str(login_request.username)
+        self.user_id = self.users[self.username]
+        if not self.username in self.users:
             self.request.sendall(FailedLoginReply(header).data)
         else:
             self.request.sendall(
@@ -117,7 +137,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def _handle_whon_package(self, header):
         whon_request = WhonRequest(header.data)
         username = "None"
-        for k, v in users.items():
+        for k, v in self.users.items():
             if whon_request.user_id == v:
                 username = k
         user_online_status_reply = UserOnlineStatus(
@@ -127,8 +147,3 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             online=whon_request.user_id in self.requests,
         )
         self.request.sendall(user_online_status_reply.data)
-
-
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
-

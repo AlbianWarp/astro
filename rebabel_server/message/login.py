@@ -5,7 +5,7 @@ from rebabel_server.message import Package
 
 
 class LoginRequest(Package):
-    field_names = namedtuple("LoginRequest", "unk1 unk2 unk3 nlen plen name password")
+    field_names = namedtuple("LoginRequest", "unk1 unk2 unk3 nlen plen username password")
     fmt = "<IIIII%dsx%dsx"  # (nlen -1 , plen -1 )
     data = None
     unpacked_data = None
@@ -39,12 +39,12 @@ class LoginRequest(Package):
         return self.unpacked_data.plen
 
     @property
-    def name(self):
-        return self.unpacked_data.name.decode("latin-1")
+    def username(self):
+        return self.unpacked_data.username.decode("latin-1")
 
     @property
     def password(self):
-        return self.unpacked_data.password
+        return self.unpacked_data.password.decode("latin-1")
 
 
 class FailedLoginReply(Package):
