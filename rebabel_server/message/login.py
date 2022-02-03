@@ -5,7 +5,9 @@ from rebabel_server.message import Package
 
 
 class LoginRequest(Package):
-    field_names = namedtuple("LoginRequest", "unk1 unk2 unk3 nlen plen username password")
+    field_names = namedtuple(
+        "LoginRequest", "unk1 unk2 unk3 nlen plen username password"
+    )
     fmt = "<IIIII%dsx%dsx"  # (nlen -1 , plen -1 )
     data = None
     unpacked_data = None
@@ -90,7 +92,7 @@ class SuccessfullLoginReply(Package):
             b"\x01\x00",
             b"\x0a\x00",
             header.pkg_count,
-            8*b"\x00",
+            8 * b"\x00",
             1,
             payload_length,
             1,

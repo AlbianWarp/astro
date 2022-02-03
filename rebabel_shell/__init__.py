@@ -2,6 +2,7 @@ from socket import SHUT_RDWR
 from rich import print
 import cmd
 
+
 class RebabelShell(cmd.Cmd):
     intro = "Hello, Welcome to Rebabel Shell. Type help or ? to list commands.\n"
     prompt = "(astro)"

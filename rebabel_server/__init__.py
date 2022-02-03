@@ -2,7 +2,11 @@ from threading import Thread
 import socketserver
 from time import sleep
 from rebabel_server.message.header import Header
-from rebabel_server.message.login import LoginRequest, SuccessfullLoginReply, FailedLoginReply
+from rebabel_server.message.login import (
+    LoginRequest,
+    SuccessfullLoginReply,
+    FailedLoginReply,
+)
 from rebabel_server.message.ulin import UlinReply, UlinRequest
 from rebabel_server.message.whon import WhonRequest
 from rebabel_server.message.ruso import RusoReply
@@ -11,19 +15,21 @@ import random
 from hexdump import hexdump
 
 
-
-class ReBabelServer():
-
-    def __init__(self,host,port):
+class ReBabelServer:
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         ThreadedTCPServer.allow_reuse_address = True
-        self.threaded_tcp_server = ThreadedTCPServer((host, port), ThreadedTCPRequestHandler)
+        self.threaded_tcp_server = ThreadedTCPServer(
+            (host, port), ThreadedTCPRequestHandler
+        )
         # Start a thread with the server -- that thread will then start one
         # more thread for each request.
         self.server_thread = Thread(target=self.threaded_tcp_server.serve_forever)
         self.server_thread.name = "ServerThread"
-        self.server_thread.daemon = True # Exit the server thread when the main thread terminates
+        self.server_thread.daemon = (
+            True  # Exit the server thread when the main thread terminates
+        )
         self.threaded_tcp_server
         self.server_thread.start()
 
@@ -47,11 +53,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         "port": 1337,
         "name": "Astro",
     }
-    users = {
-        "bob": 1,
-        "alice": 2,
-        "moep": 3
-    }
+    users = {"bob": 1, "alice": 2, "moep": 3}
 
     def setup(self):
         """
@@ -59,7 +61,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
         print(f"{self.request.getpeername()} connected")
         self.threads.append(self)
-
 
     def _handle(self):
         """
@@ -79,9 +80,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         elif header.type == 545:  # net: ruso
             self._handle_ruso_package(header=header)
         else:
-            print(
-                f"Unknown type: {header.type} {header.data[0:4].hex()}"
-            )
+            print(f"Unknown type: {header.type} {header.data[0:4].hex()}")
             print(hexdump(header.data))
 
     def handle(self):
@@ -102,7 +101,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         """
         print(f"{self.client_address} disconnected")
         self.threads.remove(self)
-        if 'user_id' in self.__dict__:
+        if "user_id" in self.__dict__:
             self.requests.pop(self.user_id)
 
     def _handle_login_package(self, header):
@@ -131,7 +130,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def _handle_ruso_package(self, header):
         user_id = random.choice(list(self.requests.keys()))
-        ruso_reply = RusoReply(header=header,user_id=user_id,user_hid=1)
+        ruso_reply = RusoReply(header=header, user_id=user_id, user_hid=1)
         self.request.sendall(ruso_reply.data)
 
     def _handle_whon_package(self, header):

@@ -3,10 +3,10 @@ from collections import namedtuple
 from rebabel_server.message.header import Header
 from rebabel_server.message import Package
 
+
 class UlinRequest(Header):
-    field_names = namedtuple(
-        "UlinRequest", Header.field_names._fields
-    )
+    field_names = namedtuple("UlinRequest", Header.field_names._fields)
+
 
 class UlinReply(Package):
     field_names = namedtuple("UlinReply", "type echo pkg_count status")

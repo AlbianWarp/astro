@@ -3,11 +3,11 @@ from collections import namedtuple
 from rebabel_server.message import Package
 
 
-def pack_header(type, echo, user_id, user_hid, unknown01, pkg_count,unknown02=8*b"\x00"):
+def pack_header(
+    type, echo, user_id, user_hid, unknown01, pkg_count, unknown02=8 * b"\x00"
+):
     return Header(
-        pack(
-            Header.fmt, type, echo, user_id, user_hid, unknown01, pkg_count, unknown02
-        )
+        pack(Header.fmt, type, echo, user_id, user_hid, unknown01, pkg_count, unknown02)
     )
 
 
